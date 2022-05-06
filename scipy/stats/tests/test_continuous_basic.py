@@ -702,6 +702,18 @@ def test_methods_with_lists(method, distname, args):
                         rtol=1e-14, atol=5e-14)
 
 
+@pytest.mark.parametrize('method', ['pdf', 'logpdf', 'cdf', 'logcdf',
+                                    'sf', 'logsf', 'ppf', 'isf'])
+def test_gilbrat_deprecation(method):
+    expected = getattr(stats.gibrat, method)(1)
+    with pytest.warns(
+        DeprecationWarning,
+        match=rf"\s*`gilbrat\.{method}` is deprecated,.*",
+    ):
+        result = getattr(stats.gilbrat, method)(1)
+    assert result == expected
+
+
 def test_burr_fisk_moment_gh13234_regression():
     vals0 = stats.burr.moment(1, 5, 4)
     assert isinstance(vals0, float)
@@ -866,3 +878,16 @@ def test_frozen_attributes():
     frozen_norm = stats.norm()
     assert isinstance(frozen_norm, rv_continuous_frozen)
     delattr(stats.norm, 'pmf')
+
+
+def test_skewnorm_pdf_gh16038():
+    rng = np.random.default_rng(0)
+    x, a = -np.inf, 0
+    npt.assert_equal(stats.skewnorm.pdf(x, a), stats.norm.pdf(x))
+    x, a = rng.random(size=(3, 3)), rng.random(size=(3, 3))
+    mask = rng.random(size=(3, 3)) < 0.5
+    a[mask] = 0
+    x_norm = x[mask]
+    res = stats.skewnorm.pdf(x, a)
+    npt.assert_equal(res[mask], stats.norm.pdf(x_norm))
+    npt.assert_equal(res[~mask], stats.skewnorm.pdf(x[~mask], a[~mask]))
